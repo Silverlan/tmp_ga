@@ -60,8 +60,8 @@ jobs:
         with:
           artifacts: "release/../${{ steps.generate-archive.outputs.archive-name }}"
           body: "Automatically generated binaries."
-          commit: ${{ inputs.commit }}
-          token: ${{ inputs.token }}
+          commit: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag: latest
           replacesArtifacts: true
           allowUpdates: true
