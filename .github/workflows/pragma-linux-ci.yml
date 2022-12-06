@@ -1,0 +1,73 @@
+name: Build Windows
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+concurrency:
+  group: environment-win-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build - ${{ matrix.config.os }}
+    runs-on: ${{ matrix.config.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - os: windows-latest
+            name: "Windows x64 MSVC"
+            artifact: "Windows-MSVC.tar.xz"
+            build_type: "RelWithDebInfo"
+            environment_script: "C:/Program Files/Microsoft Visual Studio/2022/Enterprise/VC/Auxiliary/Build/vcvars64.bat"
+            cc: "cl"
+            cxx: "cl"
+            archiver: "7z a"
+            generators: "Visual Studio 16 2022"
+            build_dir: 'build'
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+    
+      - name: Build Module
+        id: build-module
+        uses: Silverlan/pragma/github_actions/build_generic_module@master
+        with:
+          module: 'pr_unirender'
+
+      - name: Generate Release Archive
+        shell: bash
+        run: |
+          mkdir release
+          cp readme.md release/
+          
+
+      - name: Generate Release Archive
+        shell: bash
+        working-directory: "release"
+        id: generate-archive
+        run: |
+          if [ "$RUNNER_OS" == "Linux" ]; then
+            archiveName=binaries_linux64.tar.gz
+            tar -czvf $archiveName *
+          else
+            archiveName=binaries_windows64.zip
+            vcpkg install 7zip
+            "7z.exe" a $archiveName "*.*" -r
+          fi
+          mv $archiveName ../$archiveName
+          echo "::set-output name=archive-name::$archiveName"
+
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "release/../${{ steps.generate-archive.outputs.archive-name }}"
+          body: "Automatically generated binaries."
+          commit: ${{ inputs.commit }}
+          token: ${{ inputs.token }}
+          tag: latest
+          replacesArtifacts: true
+          allowUpdates: true
